@@ -3,8 +3,8 @@ const express = require("express");
 const { Category } = require("../models/category");
 const router = express.Router();
 const mongoose = require("mongoose");
-const { countDocuments, count } = require("mongoose/lib/model");
 const multer = require("multer");
+const { Categories } = require("../models/categoriesfollow");
 
 const FILE_TYPE_MAP = {
   "image/png": "png",
@@ -35,14 +35,22 @@ router.get(`/`, async (req, res) => {
   // localhost:3000/api/v1/product?categories=2342342,234234
   let filter = {};
   if (req.query.categories) {
-    const filter = { category: req.query.categories.split(",") };
+    filter = { category: req.query.categories.split(",") };
   }
+
+  // Lấy danh sách sản phẩm và gộp thông tin danh mục vào từng sản phẩm
   const productList = await Product.find(filter).populate("category");
 
   if (!productList) {
-    res.status(500).json({ success: fasle });
+    res.status(500).json({ success: false });
   }
-  res.send(productList);
+
+  // Gộp thông tin của danh mục trong danh mục chính
+  const populatedCategoryList = await Category.populate(productList, {
+    path: "category.categories",
+  });
+
+  res.send(populatedCategoryList);
 });
 
 router.get(`/:id`, async (req, res) => {
@@ -55,7 +63,8 @@ router.get(`/:id`, async (req, res) => {
 });
 
 router.post(`/`, uploadOptions.single("image"), async (req, res) => {
-  const category = await Category.findById(req.body.category);
+  console.log(req.body);
+  const category = await Categories.findById(req.body.category);
   if (!category) return res.status(400).send("Invalid Category");
 
   const file = req.file;
@@ -89,7 +98,7 @@ router.put("/:id", uploadOptions.single("image"), async (req, res) => {
     return res.status(400).send("Invaild Product Id");
   }
 
-  const category = await Category.findById(req.body.category);
+  const category = await Categories.findById(req.body.category);
   if (!category) return res.status(400).send("Invalid Category");
 
   const product = await Product.findById(req.params.id);
@@ -197,4 +206,17 @@ router.put(
     res.send(product);
   }
 );
+router.get("/get/count/:categoryId", async (req, res) => {
+  const categoryId = req.params.categoryId;
+
+  try {
+    // Truy vấn số lượng sản phẩm trong danh mục có ID tương ứng
+    const productCount = await Product.countDocuments({ category: categoryId });
+
+    // Trả về dữ liệu dạng JSON
+    res.json({ success: true, productCount: productCount });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 module.exports = router;
