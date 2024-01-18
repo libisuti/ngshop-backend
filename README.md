@@ -1,3 +1,3 @@
 # ngshop-backend
-# remember when u get the code always npm install 
+# npm install 
 # config database mongodb
